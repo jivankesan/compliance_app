@@ -1,0 +1,109 @@
+from fastapi import FastAPI, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional
+import os
+
+from utils.config import Config
+from utils.extractors import PDFTextExtractor, DOCXTextExtractor, TXTTextExtractor
+from utils.embeddings import EmbeddingsManager
+from utils.text_processing import TextProcessor
+from utils.compliance_agent import ComplianceAgent
+
+from langchain_openai import AzureOpenAIEmbeddings
+
+app = FastAPI()
+
+# Configure CORS
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Load environment/config
+config = Config()
+
+# Initialize EmbeddingsManager
+INDEX_FILE = 'embeddings/faiss_index_2.index'
+EMBEDDINGS_FILE = 'embeddings/test_case_2.json'
+embeddings_manager = EmbeddingsManager(
+    embeddings_file_path=EMBEDDINGS_FILE,
+    faiss_index_path=INDEX_FILE
+)
+embeddings_manager.load_data_and_index()
+
+# Initialize the embedding model for chunk splitting
+azure_embedding_model = AzureOpenAIEmbeddings(
+    model="text-embedding-ada-002",
+    api_key=config.model_api_key,
+    api_version=config.api_version
+)
+
+# Initialize TextProcessor
+text_processor = TextProcessor(
+    embedding_model=azure_embedding_model,
+    threshold_type="percentile",
+    threshold_amount=88.0
+)
+
+# System prompt
+SYSTEM_PROMPT = (
+    "You are an AI Compliance Agent. Your task is to scan a provided document "
+    "and compare it against excerpts from a compliance guide to ensure it meets "
+    "specific criteria. If all criteria are met, respond with 'All criteria met.' "
+    "If any criteria are not met, provide a list of issues, clearly stating what "
+    "is missing or incorrect, limiting your response to at most five comments per section. "
+    "For any missing or incorrect information, structure your response as a list of tuples, "
+    "where the first entry is the section of the document that requires a change, and the "
+    "second entry specifies what needs to be added or corrected in that section. If a specific "
+    "disclosure is required, include the exact text of the disclosure from the compliance guide. "
+    "Do not include any unnecessary text or explanations—only the list of issues or 'All criteria met'."
+)
+
+# Initialize ComplianceAgent
+compliance_agent = ComplianceAgent(
+    azure_endpoint=config.model_endpoint,
+    api_key=config.model_api_key,
+    api_version=config.api_version,
+    embedding_model="text-embedding-ada-002",  # for embeddings creation
+    chat_model="gpt-4o",                      # for chat completions
+    system_prompt=SYSTEM_PROMPT,
+    embeddings_manager=embeddings_manager,
+    text_processor=text_processor
+)
+
+
+@app.post("/upload")
+async def upload_document(file: UploadFile = File(...)):
+    """
+    Endpoint to handle file upload, extract text, chunk, run compliance check, return results.
+    """
+    file_bytes = await file.read()
+    filename = file.filename.lower()
+
+    # Identify file type by extension
+    extractor = None
+    if filename.endswith(".pdf"):
+        extractor = PDFTextExtractor()
+    elif filename.endswith(".docx"):
+        extractor = DOCXTextExtractor()
+    elif filename.endswith(".txt"):
+        extractor = TXTTextExtractor()
+    else:
+        return {"error": "Unsupported file type."}
+
+    # Extract text using the chosen extractor
+    extracted_text = extractor.extract_text(file_bytes)
+
+    # Run compliance check
+    results = compliance_agent.compliance_check(extracted_text)
+
+    return {"chunks": results}

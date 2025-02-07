@@ -93,7 +93,7 @@ function App() {
             onClick={handleUpload}
             className="bg-black text-white px-6 py-3 rounded-lg shadow-md hover:bg-green-900 transition-all duration-300"
           >
-            Send
+            Check
           </button>
         </div>
 

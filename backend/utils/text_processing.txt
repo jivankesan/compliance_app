@@ -3,7 +3,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 class TextProcessor:
     """
-    Handles splitting of text into chunks using a configurable approach.
+    Handles splitting of text into chunks.
     """
     def __init__(self, embedding_model, threshold_type="percentile", threshold_amount=88.0):
         self.text_splitter = SemanticChunker(
@@ -19,12 +19,3 @@ class TextProcessor:
         """
         docs = self.text_splitter.create_documents([text])
         return docs
-
-    # Alternative (backup) approach if needed:
-    # def create_recursive_chunks(self, text: str, chunk_size=1000, chunk_overlap=200):
-    #     splitter = RecursiveCharacterTextSplitter(
-    #         chunk_size=chunk_size,
-    #         chunk_overlap=chunk_overlap
-    #     )
-    #     docs = splitter.create_documents([text])
-    #     return docs

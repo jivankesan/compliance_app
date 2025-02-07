@@ -5,7 +5,6 @@ import docx
 class BaseTextExtractor:
     """
     Base class for text extraction.
-    Child classes should override the `extract_text` method.
     """
     def extract_text(self, file_bytes: bytes) -> str:
         raise NotImplementedError("This method should be overridden by subclasses.")

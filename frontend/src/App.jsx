@@ -1,4 +1,7 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import FileUploader from "./components/FileUploader.jsx";
+import ProgressBar from "./components/ProgressBar.jsx";
+import ChunkList from "./components/ChunkList.jsx";
 
 function App() {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -22,21 +25,22 @@ function App() {
     setUploading(true);
     setProgress(0);
 
-    // Simulate a 10-second upload progress bar
+    // Simulate a 20-second upload progress bar
     const interval = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 100) {
+        if (prev >= 99) {
           clearInterval(interval);
-          return 100;
+          return 99;
         }
         return prev + 1;
       });
-    }, 100);
-
-    const formData = new FormData();
-    formData.append("file", selectedFile);
+    }, 400);
 
     try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      // Use your actual backend endpoint here:
       const response = await fetch("http://localhost:8000/upload", {
         method: "POST",
         body: formData,
@@ -62,78 +66,21 @@ function App() {
     <div className="min-h-screen w-screen flex items-center justify-center bg-green-700 p-8">
       <div className="w-5/6 bg-white shadow-lg rounded-lg p-6">
         <h1 className="text-2xl font-bold text-green-800 mb-6 text-center">
-          TD Bank Compliance Checker
+          TDAM Compliance Checker
         </h1>
         <p className="text-center text-black mb-6">
-          *AI can make mistakes, use at your own discretion*
+          *Language models can make mistakes, use at your own discretion*
         </p>
 
-        <div className="flex flex-col items-center space-y-4">
-          <label
-            htmlFor="file-upload"
-            className="cursor-pointer bg-green-600 hover:bg-green-700 text-white font-medium px-6 py-3 rounded-lg shadow-md transition-all duration-300"
-          >
-            Choose a File
-          </label>
-          <input
-            id="file-upload"
-            type="file"
-            onChange={handleFileChange}
-            className="hidden"
-          />
+        <FileUploader
+          onFileChange={handleFileChange}
+          onUpload={handleUpload}
+          selectedFile={selectedFile}
+        />
 
-          {selectedFile && (
-            <p className="text-sm font-medium text-gray-800">
-              Selected File:{" "}
-              <span className="text-green-600">{selectedFile.name}</span>
-            </p>
-          )}
+        {uploading && <ProgressBar progress={progress} />}
 
-          <button
-            onClick={handleUpload}
-            className="bg-black text-white px-6 py-3 rounded-lg shadow-md hover:bg-green-900 transition-all duration-300"
-          >
-            Check
-          </button>
-        </div>
-
-        {/* Progress Bar */}
-        {uploading && (
-          <div className="w-full mt-6 bg-gray-300 rounded-full overflow-hidden">
-            <div
-              className="bg-green-600 text-xs font-semibold text-white text-center leading-none py-2"
-              style={{ width: `${progress}%` }}
-            >
-              {progress}%
-            </div>
-          </div>
-        )}
-
-        {/* Display Chunks After Upload Completes */}
-        {!uploading && chunks.length > 0 && (
-          <div className="mt-8">
-            {chunks.map((chunkObj, idx) => (
-              <div key={idx} className="mb-6 p-4 border bg-gray-100 rounded-lg">
-                <div className="flex space-x-4">
-                  <div className="w-1/2">
-                    <h2 className="font-bold text-green-800 mb-2">
-                      Document Chunk {idx + 1}
-                    </h2>
-                    <p className="text-sm text-black whitespace-pre-wrap">
-                      {chunkObj.chunk}
-                    </p>
-                  </div>
-                  <div className="w-1/2">
-                    <h2 className="font-bold text-green-800 mb-2">
-                      Generated Comment
-                    </h2>
-                    <p className="text-sm text-gray-700">{chunkObj.comment}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        {!uploading && chunks.length > 0 && <ChunkList chunks={chunks} />}
       </div>
     </div>
   );
